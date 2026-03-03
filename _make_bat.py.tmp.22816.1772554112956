@@ -1,0 +1,27 @@
+import os
+
+lines = [
+    '@echo off',
+    'chcp 65001 >nul',
+    'title Claude Code Remote',
+    '',
+    'echo ============================================',
+    'echo   Claude Code Remote',
+    'echo ============================================',
+    'echo.',
+    'echo Close this window to disconnect remote session.',
+    'echo.',
+    '',
+    'cd /d "%~dp0"',
+    'set "CLAUDE_PROJECT_DIR=%cd%"',
+    '"C:\\Program Files\\Git\\usr\\bin\\bash.exe" -l "./remote_start.sh"',
+    '',
+    'pause',
+    '',
+]
+content = '\r\n'.join(lines)
+
+bat_path = os.path.join(os.path.dirname(__file__), 'remote_bat_Data_Share.bat')
+with open(bat_path, 'w', encoding='utf-8', newline='') as f:
+    f.write(content)
+print(f'Created: {bat_path}')

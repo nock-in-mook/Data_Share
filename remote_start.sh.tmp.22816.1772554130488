@@ -1,0 +1,61 @@
+#!/bin/bash
+# Claude Code Remote startup script
+
+# Get project directory from batch file
+if [ -n "$CLAUDE_PROJECT_DIR" ]; then
+  cd "$CLAUDE_PROJECT_DIR" || exit 1
+fi
+
+# Project name from directory (may contain Japanese - only used in variables)
+PROJECT_NAME=$(basename "$PWD")
+
+# Native claude path
+export PATH="$HOME/.local/bin:$HOME/AppData/Roaming/npm:$PATH"
+
+# Prevent nesting
+unset CLAUDECODE
+
+# Debug log
+debuglog=$(mktemp)
+trap "rm -f $debuglog; kill $watcher 2>/dev/null" EXIT
+
+# Background watcher: extract session URL from debug log
+(
+  for i in $(seq 1 90); do
+    sleep 2
+    if [ -s "$debuglog" ]; then
+      session_id=$(grep -o 'sessionId=[^ ,)"]*' "$debuglog" 2>/dev/null | head -1 | sed 's/sessionId=//')
+      env_id=$(grep -o 'env_[A-Za-z0-9]*' "$debuglog" 2>/dev/null | head -1)
+
+      if [ -n "$session_id" ] && [ -n "$env_id" ]; then
+        url="https://claude.ai/code/session_${session_id}?bridge=${env_id}"
+
+        # Copy to clipboard
+        printf '%s' "$url" | clip.exe 2>/dev/null
+
+        # Send to Slack
+        webhook_file="$HOME/.claude/slack_webhook_url"
+        if [ -f "$webhook_file" ]; then
+          webhook_url=$(cat "$webhook_file" | tr -d '\r\n')
+          payload_file=$(mktemp)
+          now=$(date '+%Y/%m/%d %H:%M')
+          printf '{"text":"Remote URL ready (%s)\\n%s\\n%s"}' "$PROJECT_NAME" "$now" "$url" > "$payload_file"
+          curl -s -X POST "$webhook_url" \
+            -H 'Content-type: application/json; charset=utf-8' \
+            --data-binary "@$payload_file" > /dev/null 2>&1
+          rm -f "$payload_file"
+        fi
+
+        echo ""
+        echo "==> URL copied to clipboard & sent to Slack! <=="
+        echo "==> $url"
+        echo ""
+        break
+      fi
+    fi
+  done
+) &
+watcher=$!
+
+# Run claude remote-control (no pipes on stdout/stdin!)
+claude remote-control --debug-file "$debuglog"
