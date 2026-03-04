@@ -39,7 +39,7 @@ class TrayApp:
     def set_status(self, status: str):
         self._status = status
         if self.icon:
-            self.icon.title = f"Data Share - {status}"
+            self.icon.title = f"即シェア君 - {status}"
 
     def flash_received(self, duration=300):
         """アイコンを緑に変えて、duration秒後に青に戻す"""
@@ -48,7 +48,7 @@ class TrayApp:
         if self._revert_timer:
             self._revert_timer.cancel()
         self.icon.icon = create_icon_image(COLOR_RECEIVED)
-        self.icon.title = "Data Share - 受信あり！"
+        self.icon.title = "即シェア君 - 受信あり！"
         self._revert_timer = threading.Timer(duration, self._revert_icon)
         self._revert_timer.daemon = True
         self._revert_timer.start()
@@ -57,7 +57,7 @@ class TrayApp:
         """アイコンを通常色に戻す"""
         if self.icon:
             self.icon.icon = create_icon_image(COLOR_NORMAL)
-            self.icon.title = f"Data Share - {self._status}"
+            self.icon.title = f"即シェア君 - {self._status}"
         self._revert_timer = None
 
     def _on_click(self, icon, item):
@@ -96,9 +96,9 @@ class TrayApp:
     def run(self):
         """トレイアイコンを表示（ブロッキング）"""
         self.icon = pystray.Icon(
-            name="data_share",
+            name="rapid_share",
             icon=create_icon_image(),
-            title="Data Share",
+            title="即シェア君",
             menu=self._build_menu(),
         )
         self.icon.run()

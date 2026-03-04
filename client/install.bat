@@ -4,11 +4,11 @@ setlocal
 
 set "SCRIPT_DIR=%~dp0"
 set "VENV_DIR=%SCRIPT_DIR%venv"
-set "EXE_PATH=%SCRIPT_DIR%dist\DataShare.exe"
+set "EXE_PATH=%SCRIPT_DIR%dist\RapidShare.exe"
 set "STARTUP_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
-set "SHORTCUT_NAME=DataShare.vbs"
+set "SHORTCUT_NAME=RapidShare.vbs"
 
-echo === Data Share Client Setup ===
+echo === rapid_share Setup ===
 
 REM EXEがあればそちらを使う
 if exist "%EXE_PATH%" (
@@ -23,7 +23,7 @@ if exist "%EXE_PATH%" (
     echo   - Startup: %STARTUP_DIR%\%SHORTCUT_NAME%
     echo   - Config:  %SCRIPT_DIR%config.json
     echo.
-    echo Starting DataShare...
+    echo Starting...
     start "" "%EXE_PATH%"
     pause
     exit /b
@@ -50,6 +50,6 @@ echo Setup complete!
 echo   - Startup: %STARTUP_DIR%\%SHORTCUT_NAME%
 echo   - Config:  %SCRIPT_DIR%config.json
 echo.
-echo Starting DataShare...
+echo Starting...
 start "" "%VENV_DIR%\Scripts\pythonw.exe" "%SCRIPT_DIR%data_share_client.py"
 pause

@@ -11,7 +11,7 @@ def show_notification(title: str, message: str, url: str | None = None):
         from winotify import Notification, audio
 
         toast = Notification(
-            app_id="Data Share",
+            app_id="即シェア君",
             title=title,
             msg=message,
             duration="short",

@@ -5,7 +5,7 @@ setlocal
 set "SCRIPT_DIR=%~dp0"
 set "VENV_DIR=%SCRIPT_DIR%venv"
 
-echo === Data Share Client - Build EXE ===
+echo === rapid_share - Build EXE ===
 
 REM venvがなければ作成
 if not exist "%VENV_DIR%\Scripts\python.exe" (
@@ -20,16 +20,13 @@ echo Building EXE...
 "%VENV_DIR%\Scripts\pyinstaller" ^
     --onefile ^
     --windowed ^
-    --name DataShare ^
+    --name RapidShare ^
     --icon NUL ^
-    --add-data "%SCRIPT_DIR%config.json;." ^
-    --hidden-import pystray._win32 ^
-    --hidden-import winotify ^
     "%SCRIPT_DIR%data_share_client.py"
 
-if exist "%SCRIPT_DIR%dist\DataShare.exe" (
+if exist "%SCRIPT_DIR%dist\RapidShare.exe" (
     echo.
-    echo Build complete: %SCRIPT_DIR%dist\DataShare.exe
+    echo Build complete: %SCRIPT_DIR%dist\RapidShare.exe
 ) else (
     echo.
     echo Build FAILED

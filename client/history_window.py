@@ -27,7 +27,7 @@ def show_history(items: list, get_history_fn=None):
     win = tk.Toplevel() if _has_tk_root() else tk.Tk()
     # チカチカ防止
     win.withdraw()
-    win.title("Data Share")
+    win.title("即シェア君")
     win.configure(bg=BG)
     win.attributes("-topmost", True)
     win.resizable(False, False)
