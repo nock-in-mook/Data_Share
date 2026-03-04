@@ -1,3 +1,16 @@
 remote_bat*.bat
 remote_start*.sh
 *.tmp.*
+
+# Worker
+node_modules/
+dist/
+.wrangler/
+
+# Python client
+client/venv/
+client/build/
+client/dist/
+__pycache__/
+*.pyc
+*.spec
