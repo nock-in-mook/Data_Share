@@ -1,36 +1,67 @@
-# Data_Share 引き継ぎメモ
+# Data_Share (即シェア君) 引き継ぎメモ
+
+## 最終更新: 2026-03-07
+
+## 直近の作業: フォルダ大移動作戦
+- `.★自作アプリ2026-★` → `_Apps2026`、`.claude-sync` → `_claude-sync` にリネーム
+- 全コード・設定ファイルの旧パス参照を修正済み
+- 即シェア君をリビルド済み（旧exeが旧パスにフォルダ自動生成していた問題を修正）
+- ショートカット（即シェア君・透明キーボード）を新パスで再作成済み
+- 詳細は `申し送りメモ.md` を参照
+
+## 次のアクション
+- ユーザーがPC再起動して、即シェア君のスタートアップ自動起動＋旧フォルダ未生成を確認中
+- 確認OKなら旧フォルダ `D:\Dropbox\.★自作アプリ2026-★` を手動削除
+- 他のPCでは `_claude-sync/setup.bat` 実行 + ショートカット再作成が必要
 
 ## 現在の状況
 - **Cloudflare Workers**: デプロイ済み → https://data-share.yagukyou.workers.dev
 - **KV**: `DATA_SHARE_KV` (id: 348a89215cab42939b76044f24b996ff)
 - **R2**: `data-share-files` バケット作成済み
-- **cronトリガー**: 毎分R2クリーンアップ稼働中
-- **PCクライアント**: exe化済み (`client/dist/DataShare.exe` 約21MB)
+- **cronトリガー**: 5分ごとR2クリーンアップ（毎分→5分に変更、KV List無料枠対策）
+- **PCクライアント**: exe化済み (`client/dist/RapidShare.exe`)
+- **スタートメニュー/スタートアップ**: .lnk ショートカット方式（VBSの日本語パス文字化け対策済み）
 
 ## 実装済み機能
 - テキスト/画像アップロード (スマホブラウザ)
+- **複数画像同時アップロード対応**
+- **画像自動圧縮（1MB以上→JPEG 1920px、ブラウザ側）**
 - 閲覧ページ + コピー/ダウンロードボタン
-- ポーリングAPI
+- ポーリングAPI (5秒間隔、ロック時30秒)
 - PCクライアント: ポーリング → トースト通知 → クリップボード自動コピー
-- テキスト自動保存 (`D:/Dropbox/.★自作アプリ2026-★/text/`、最新10件ローテ)
-- 画像自動ダウンロード (`D:/Dropbox/.★自作アプリ2026-★/images/`、最新10件ローテ)
-- 履歴ウィンドウ (トレイメニュー「履歴を表示」、1時間保持)
+- テキスト自動保存 (`D:/Dropbox/_Apps2026/text/`、最新50件ローテ)
+- 画像自動ダウンロード (`D:/Dropbox/_Apps2026/images/`、最新50件ローテ)
+- **履歴ウィンドウ (最大20件表示、48時間保持、ダブルクリックで詳細表示)**
+  - テキスト → tkinterポップアップ（全文表示+コピーボタン）
+  - 画像 → デフォルトビューア（最前面表示、Altキートリック）
+- **通知「開く」ボタン**
+  - テキスト → EXE自身の--view-textモード（Python不要）
+  - 画像 → VBS経由でフォアグラウンド起動
 - システムトレイ常駐 (青=通常、緑=受信あり)
 - PC→スマホ: クリップボード送信メニュー
-- PyInstaller exe化 + install.bat
+- PyInstaller exe化 (RapidShare.exe) + アイコン埋め込み + **バージョン情報埋め込み（タスクバー表示名「即シェア君」）**
+- **スタートメニュー「即シェア君」登録 + カスタムアイコン**
+- **Safari bfcache対策（pageshow イベントでリロード）**
 
-## PCクライアント起動方法
-- exe: `client/dist/DataShare.exe` を実行（同フォルダにconfig.jsonが必要）
-- venv: `client/install.bat` を実行
+## インストール用フォルダ
+`インストール用EXEファイル/` に以下を同梱:
+- RapidShare.exe（アイコン付き）
+- config.json
+- install.bat
+- setup_shortcuts.ps1
 
 ## 注意事項
 - curlでの日本語テスト送信は文字化けする（Git Bashの制約）→ Python か ブラウザで送ること
 - User-Agentヘッダが必要（Cloudflareのボット対策で403になる場合あり）
+- `py -3.14` を使うこと（デフォルトだとランタイム見つからないエラー）
+- KV List操作は無料枠1,000回/日 → cronは5分間隔に制限済み
 
 ## ファイル構成
 ```
-worker/     → Cloudflare Workers (TypeScript) ★デプロイ済み
+worker/     → Cloudflare Workers (TypeScript) デプロイ済み
 client/     → PC常駐クライアント (Python)
-  dist/     → DataShare.exe + config.json
+  dist/     → RapidShare.exe + config.json
 explain/    → プロジェクト説明
+インストール用EXEファイル/ → 配布用（EXE + config + install.bat + ps1）
+申し送りメモ.md → フォルダ移動作戦の詳細記録
 ```

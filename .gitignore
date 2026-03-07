@@ -16,3 +16,6 @@ client/dist/
 __pycache__/
 *.pyc
 *.spec
+
+# 配布用EXE
+インストール用EXEファイル/
