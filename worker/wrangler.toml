@@ -12,4 +12,4 @@ binding = "R2"
 bucket_name = "data-share-files"
 
 [triggers]
-crons = ["* * * * *"]
+crons = ["*/5 * * * *"]

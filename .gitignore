@@ -9,6 +9,8 @@ dist/
 
 # Python client
 client/venv/
+client_mac/venv/
+client_mac/*.log
 client/build/
 client/dist/
 __pycache__/

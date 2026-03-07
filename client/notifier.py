@@ -5,7 +5,53 @@ import tempfile
 import os
 
 
-def show_notification(title: str, message: str, url: str | None = None):
+def _make_open_vbs(path: str) -> str:
+    """フォアグラウンドでファイルを開く一時VBSスクリプトを生成"""
+    vbs_path = os.path.join(tempfile.gettempdir(), "rapid_share_open.vbs")
+    escaped = path.replace('"', '""')
+    with open(vbs_path, "w", encoding="utf-8") as f:
+        f.write('Set s = CreateObject("WScript.Shell")\n')
+        f.write('s.SendKeys "%"\n')  # Alt送信でフォアグラウンド許可
+        f.write(f's.Run """{escaped}""", 1, False\n')
+    return vbs_path
+
+
+def _make_text_viewer(content: str) -> str:
+    """テキスト全文ビューアを起動するVBSスクリプトを生成（EXE自身の--view-textモード使用）"""
+    tmp = tempfile.gettempdir()
+
+    # テキスト内容を一時ファイルに保存
+    content_file = os.path.join(tmp, "rapid_share_text.txt")
+    with open(content_file, "w", encoding="utf-8") as f:
+        f.write(content)
+
+    # 自分自身のEXE/スクリプトパスを取得
+    import sys
+    if getattr(sys, 'frozen', False):
+        # EXE版: RapidShare.exe --view-text
+        exe_path = sys.executable
+        cmd = f'"""{exe_path}""" --view-text'
+    else:
+        # 開発版: pythonw data_share_client.py --view-text
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        script = os.path.join(script_dir, "data_share_client.py")
+        venv_pythonw = os.path.join(script_dir, "venv", "Scripts", "pythonw.exe")
+        if os.path.exists(venv_pythonw):
+            cmd = f'"""{venv_pythonw}""" """{script}""" --view-text'
+        else:
+            cmd = f'pythonw """{script}""" --view-text'
+
+    # VBS ラッパー
+    vbs_path = os.path.join(tmp, "rapid_share_text_open.vbs")
+    with open(vbs_path, "w", encoding="utf-8") as f:
+        f.write('Set s = CreateObject("WScript.Shell")\n')
+        f.write('s.SendKeys "%"\n')
+        f.write(f's.Run {cmd}, 0, False\n')
+    return vbs_path
+
+
+def show_notification(title: str, message: str, url: str | None = None,
+                      text_content: str | None = None):
     """Windowsトースト通知を表示する"""
     try:
         from winotify import Notification, audio
@@ -18,8 +64,14 @@ def show_notification(title: str, message: str, url: str | None = None):
         )
         toast.set_audio(audio.Default, loop=False)
 
-        if url:
-            toast.add_actions(label="ブラウザで開く", launch=url)
+        if text_content:
+            # テキスト: tkinterビューアで開く
+            viewer = _make_text_viewer(text_content)
+            toast.add_actions(label="開く", launch=viewer)
+        elif url:
+            # 画像等: デフォルトアプリでフォアグラウンド起動
+            vbs = _make_open_vbs(url)
+            toast.add_actions(label="開く", launch=vbs)
 
         toast.show()
     except Exception as e:

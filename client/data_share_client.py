@@ -36,13 +36,13 @@ POLL_ENDPOINT = "/api/poll"
 ITEM_ENDPOINT = "/api/item"
 
 # 自動保存先（自作アプリ親フォルダ）
-APPS_ROOT = Path("D:/Dropbox/.★自作アプリ2026-★")
+APPS_ROOT = Path("D:/Dropbox/_Apps2026")
 TEXT_SAVE_DIR = APPS_ROOT / "text"
 IMAGE_SAVE_DIR = APPS_ROOT / "images"
-MAX_SAVED_FILES = 10  # 各フォルダの最大ファイル数
+MAX_SAVED_FILES = 50  # 各フォルダの最大ファイル数
 
 # 履歴保持時間
-HISTORY_DURATION = timedelta(hours=1)
+HISTORY_DURATION = timedelta(hours=48)
 
 
 def is_screen_locked() -> bool:
@@ -248,10 +248,10 @@ class DataShareClient:
                 show_notification(
                     "テキストを受信（コピー済み）",
                     f"{preview[:50]}..." if len(preview) > 50 else preview,
-                    url=view_url,
+                    text_content=content,
                 )
             else:
-                show_notification("テキストを受信", preview, url=view_url)
+                show_notification("テキストを受信", preview)
 
         elif item_type == "image":
             item = self.fetch_item(item_id)
@@ -389,7 +389,84 @@ def get_app_dir() -> str:
     return os.path.dirname(os.path.abspath(__file__))
 
 
+def show_text_viewer():
+    """--view-text モード: 一時ファイルからテキストを読んでtkinterで表示"""
+    import tempfile
+
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except Exception:
+        pass
+
+    # フォアグラウンド権限取得
+    user32 = ctypes.windll.user32
+    user32.keybd_event(0x12, 0, 0, 0)
+    user32.keybd_event(0x12, 0, 2, 0)
+
+    content_file = os.path.join(tempfile.gettempdir(), "rapid_share_text.txt")
+    try:
+        with open(content_file, "r", encoding="utf-8") as f:
+            content = f.read()
+    except Exception:
+        content = ""
+
+    BG = "#1a1a2e"
+    ACCENT = "#3a7bd5"
+
+    root = tk.Tk()
+    root.title("即シェア君 — テキスト")
+    root.configure(bg=BG)
+    root.attributes("-topmost", True)
+    root.geometry("500x350")
+    root.bind("<Escape>", lambda e: root.destroy())
+
+    text_frame = tk.Frame(root, bg=BG)
+    text_frame.pack(fill="both", expand=True, padx=10, pady=(10, 5))
+    scrollbar = tk.Scrollbar(text_frame)
+    scrollbar.pack(side="right", fill="y")
+    text_widget = tk.Text(
+        text_frame, wrap="word", font=("Segoe UI", 11),
+        bg="#252540", fg="#e0e0e0", insertbackground="#e0e0e0",
+        selectbackground=ACCENT, relief="flat",
+        yscrollcommand=scrollbar.set, padx=10, pady=8,
+    )
+    text_widget.pack(fill="both", expand=True)
+    scrollbar.config(command=text_widget.yview)
+    text_widget.insert("1.0", content)
+    text_widget.config(state="disabled")
+
+    btn_frame = tk.Frame(root, bg=BG)
+    btn_frame.pack(fill="x", padx=10, pady=(0, 10))
+
+    def copy_all():
+        root.clipboard_clear()
+        root.clipboard_append(content)
+        root.update()
+        copy_btn.config(text="コピーしました！")
+        root.after(1000, lambda: copy_btn.config(text="全文コピー"))
+
+    copy_btn = tk.Label(
+        btn_frame, text="全文コピー", font=("Segoe UI", 10, "bold"),
+        bg=ACCENT, fg="#fff", padx=16, pady=6, cursor="hand2", relief="flat",
+    )
+    copy_btn.pack(side="right")
+    copy_btn.bind("<Button-1>", lambda e: copy_all())
+    copy_btn.bind("<Enter>", lambda e: copy_btn.configure(bg="#5a9ae6"))
+    copy_btn.bind("<Leave>", lambda e: copy_btn.configure(bg=ACCENT))
+
+    root.update_idletasks()
+    x = (root.winfo_screenwidth() - 500) // 2
+    y = (root.winfo_screenheight() - 350) // 2
+    root.geometry(f"+{x}+{y}")
+    root.mainloop()
+
+
 def main():
+    # --view-text モード: テキストビューアとして起動
+    if "--view-text" in sys.argv:
+        show_text_viewer()
+        return
+
     config_path = os.path.join(get_app_dir(), "config.json")
     base_url = BASE_URL
 

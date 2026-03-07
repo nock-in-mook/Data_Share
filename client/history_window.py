@@ -5,8 +5,8 @@ import subprocess
 import tkinter as tk
 
 # レイアウト定数
-ROW_HEIGHT = 30
-MAX_ROWS = 10
+ROW_HEIGHT = 26
+MAX_ROWS = 20
 WIN_WIDTH = 520
 WIN_PAD = 10
 HEADER_HEIGHT = 32
@@ -111,11 +111,20 @@ def _build_row(parent, item, alt: bool, win):
     row.pack(fill="x", pady=0)
     row.pack_propagate(False)
 
+    # ダブルクリックで詳細表示
+    def on_dblclick(e=None):
+        if item.item_type == "text":
+            _show_text_detail(win, item)
+        elif item.item_type == "image" and item.file_path:
+            _open_file(item.file_path)
+
     # 時刻
-    tk.Label(
+    time_lbl = tk.Label(
         row, text=item.time_str(), font=("Consolas", 9),
         fg="#888", bg=bg, padx=6,
-    ).pack(side="left")
+    )
+    time_lbl.pack(side="left")
+    time_lbl.bind("<Double-1>", on_dblclick)
 
     # 区切り線
     tk.Frame(row, bg="#3a3a5a", width=1).pack(side="left", fill="y", pady=4)
@@ -135,10 +144,12 @@ def _build_row(parent, item, alt: bool, win):
 
         # テキストプレビュー
         preview = item.preview.replace("\n", " ")[:PREVIEW_CHARS]
-        tk.Label(
+        lbl = tk.Label(
             row, text=preview, font=("Segoe UI", 9),
             fg="#e0e0e0", bg=bg, anchor="w",
-        ).pack(side="left", fill="x", expand=True, padx=6)
+        )
+        lbl.pack(side="left", fill="x", expand=True, padx=6)
+        lbl.bind("<Double-1>", on_dblclick)
 
     elif item.item_type == "image":
         if item.file_path:
@@ -151,10 +162,15 @@ def _build_row(parent, item, alt: bool, win):
 
         name = os.path.basename(item.file_path) if item.file_path else "画像"
         short = name[:20] + "..." if len(name) > 20 else name
-        tk.Label(
+        lbl = tk.Label(
             row, text=f"\U0001f5bc {short}", font=("Segoe UI", 9),
             fg="#8ecae6", bg=bg, anchor="w",
-        ).pack(side="left", fill="x", expand=True, padx=6)
+        )
+        lbl.pack(side="left", fill="x", expand=True, padx=6)
+        lbl.bind("<Double-1>", on_dblclick)
+
+    # 行全体にもダブルクリックを設定
+    row.bind("<Double-1>", on_dblclick)
 
 
 def _make_btn(parent, icon: str, btn_bg: str, row_bg: str, command):
@@ -194,6 +210,77 @@ def _has_tk_root() -> bool:
         return tk._default_root is not None
     except Exception:
         return False
+
+
+def _show_text_detail(parent, item):
+    """テキスト全文を表示するポップアップ"""
+    popup = tk.Toplevel(parent)
+    popup.title(f"テキスト — {item.time_str()}")
+    popup.configure(bg=BG)
+    popup.attributes("-topmost", True)
+    popup.resizable(True, True)
+    popup.geometry("500x350")
+    popup.bind("<Escape>", lambda e: popup.destroy())
+
+    # テキスト表示エリア（スクロール付き）
+    text_frame = tk.Frame(popup, bg=BG)
+    text_frame.pack(fill="both", expand=True, padx=10, pady=(10, 5))
+
+    scrollbar = tk.Scrollbar(text_frame)
+    scrollbar.pack(side="right", fill="y")
+
+    text_widget = tk.Text(
+        text_frame, wrap="word", font=("Segoe UI", 11),
+        bg="#252540", fg="#e0e0e0", insertbackground="#e0e0e0",
+        selectbackground=BTN_COPY_BG, relief="flat",
+        yscrollcommand=scrollbar.set, padx=10, pady=8,
+    )
+    text_widget.pack(fill="both", expand=True)
+    scrollbar.config(command=text_widget.yview)
+
+    text_widget.insert("1.0", item.content or "")
+    text_widget.config(state="disabled")  # 読み取り専用
+
+    # コピーボタン
+    btn_frame = tk.Frame(popup, bg=BG)
+    btn_frame.pack(fill="x", padx=10, pady=(0, 10))
+
+    def copy_all():
+        popup.clipboard_clear()
+        popup.clipboard_append(item.content or "")
+        popup.update()
+        copy_btn.config(text="コピーしました！")
+        popup.after(1000, lambda: copy_btn.config(text="全文コピー"))
+
+    copy_btn = tk.Label(
+        btn_frame, text="全文コピー", font=("Segoe UI", 10, "bold"),
+        bg=BTN_COPY_BG, fg="#fff", padx=16, pady=6,
+        cursor="hand2", relief="flat",
+    )
+    copy_btn.pack(side="right")
+    copy_btn.bind("<Button-1>", lambda e: copy_all())
+    copy_btn.bind("<Enter>", lambda e: copy_btn.configure(bg="#5a9ae6"))
+    copy_btn.bind("<Leave>", lambda e: copy_btn.configure(bg=BTN_COPY_BG))
+
+    # 画面中央配置
+    popup.update_idletasks()
+    x = (popup.winfo_screenwidth() - 500) // 2
+    y = (popup.winfo_screenheight() - 350) // 2
+    popup.geometry(f"+{x}+{y}")
+
+
+def _open_file(path: str):
+    """デフォルトアプリでファイルを開き、最前面に出す"""
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        # Alt キー送信でフォアグラウンド権限を解放
+        user32.keybd_event(0x12, 0, 0, 0)  # Alt down
+        user32.keybd_event(0x12, 0, 2, 0)  # Alt up
+        # 開く
+        os.startfile(os.path.normpath(path))
+    except Exception:
+        pass
 
 
 def _open_folder(path: str):

@@ -139,8 +139,8 @@ ${iconMetaTags}
   <button class="btn btn-primary" id="sendBtn" onclick="sendText()">送信</button>
 
   <button class="btn btn-image">
-    画像を選択
-    <input type="file" accept="image/*" onchange="sendImage(this.files[0])">
+    画像を選択（複数可）
+    <input type="file" accept="image/*" multiple onchange="sendImages(this.files)">
   </button>
 
   <p class="paste-hint">画像はクリップボードから貼り付けもOK</p>
@@ -149,7 +149,7 @@ ${iconMetaTags}
   <div class="error" id="error"></div>
 
   <div class="result" id="result">
-    <div>送信完了！ (5分で自動削除)</div>
+    <div id="resultMsg">送信完了！ (5分で自動削除)</div>
     <div style="margin-top:8px"><a id="resultLink" href="#" target="_blank"></a></div>
     <span class="copy-url" onclick="copyUrl()">URLをコピー</span>
   </div>
@@ -167,10 +167,85 @@ async function sendText() {
   $('sendBtn').disabled = false;
 }
 
-// 画像送信
+// 画像圧縮（大きすぎる画像をリサイズ）
+function compressImage(file, maxSize = 1920, quality = 0.85) {
+  return new Promise((resolve) => {
+    // 1MB以下ならそのまま送信
+    if (file.size <= 1024 * 1024) {
+      resolve(file);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+      // 長辺がmaxSize以下ならリサイズ不要だが、ファイルサイズが大きいので再圧縮
+      if (width > maxSize || height > maxSize) {
+        if (width > height) {
+          height = Math.round(height * maxSize / width);
+          width = maxSize;
+        } else {
+          width = Math.round(width * maxSize / height);
+          height = maxSize;
+        }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob((blob) => {
+        resolve(new File([blob], file.name || 'image.jpg', { type: 'image/jpeg' }));
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = () => resolve(file); // 圧縮失敗時はそのまま送信
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+// 画像送信（1枚）
 async function sendImage(file) {
   if (!file) return;
-  await upload({ type: 'image', file });
+  const compressed = await compressImage(file);
+  await upload({ type: 'image', file: compressed });
+}
+
+// 画像送信（複数枚）
+async function sendImages(files) {
+  if (!files || files.length === 0) return;
+  if (files.length === 1) {
+    await sendImage(files[0]);
+    return;
+  }
+  // 複数枚: 順番に送信して結果をまとめて表示
+  $('spinner').style.display = 'block';
+  $('result').style.display = 'none';
+  $('error').style.display = 'none';
+  let ok = 0, fail = 0;
+  for (const file of files) {
+    try {
+      const compressed = await compressImage(file);
+      const fd = new FormData();
+      fd.append('type', 'image');
+      fd.append('file', compressed);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+      const resp = await fetch('/api/upload', { method: 'POST', body: fd, signal: controller.signal });
+      clearTimeout(timeout);
+      const json = await resp.json();
+      if (json.ok) ok++; else fail++;
+    } catch { fail++; }
+  }
+  $('spinner').style.display = 'none';
+  if (ok > 0) {
+    $('resultMsg').textContent = ok + '枚送信完了！' + (fail > 0 ? ' (' + fail + '枚失敗)' : '') + ' (5分で自動削除)';
+    $('resultLink').textContent = '';
+    $('resultLink').href = '#';
+    $('result').style.display = 'block';
+  }
+  if (fail > 0 && ok === 0) {
+    $('error').textContent = '全ての画像の送信に失敗しました';
+    $('error').style.display = 'block';
+  }
 }
 
 // クリップボード画像ペースト
@@ -193,18 +268,24 @@ async function upload(data) {
 
   try {
     let resp;
+    // タイムアウト設定（30秒）
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
     if (data.type === 'text') {
       resp = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: 'text', content: data.content }),
+        signal: controller.signal,
       });
     } else {
       const fd = new FormData();
       fd.append('type', 'image');
       fd.append('file', data.file);
-      resp = await fetch('/api/upload', { method: 'POST', body: fd });
+      resp = await fetch('/api/upload', { method: 'POST', body: fd, signal: controller.signal });
     }
+    clearTimeout(timeout);
 
     const json = await resp.json();
     if (!json.ok) throw new Error(json.error || '送信失敗');
@@ -215,7 +296,11 @@ async function upload(data) {
     $('result').style.display = 'block';
     $('text').value = '';
   } catch (err) {
-    $('error').textContent = err.message;
+    if (err.name === 'AbortError') {
+      $('error').textContent = 'タイムアウトしました。画像が大きすぎるか、回線が遅い可能性があります。';
+    } else {
+      $('error').textContent = err.message || '送信に失敗しました';
+    }
     $('error').style.display = 'block';
   } finally {
     $('spinner').style.display = 'none';
@@ -230,6 +315,11 @@ function copyUrl() {
     setTimeout(() => el.textContent = 'URLをコピー', 1500);
   });
 }
+
+// Safari bfcache対策: バックフォワードキャッシュから復帰したらリロード
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) location.reload();
+});
 </script>
 </body>
 </html>`;

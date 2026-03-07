@@ -21,7 +21,8 @@ echo Building EXE...
     --onefile ^
     --windowed ^
     --name RapidShare ^
-    --icon NUL ^
+    --icon "%SCRIPT_DIR%rapidshare.ico" ^
+    --version-file "%SCRIPT_DIR%version_info.py" ^
     "%SCRIPT_DIR%data_share_client.py"
 
 if exist "%SCRIPT_DIR%dist\RapidShare.exe" (

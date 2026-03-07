@@ -45,7 +45,10 @@ export default {
     // GET / → アップロードページ
     if (method === 'GET' && path === '/') {
       return new Response(uploadPageHtml(), {
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        },
       });
     }
 
