@@ -124,6 +124,8 @@ class DataShareClient:
         # 履歴ウィンドウのコールバック（メインスレッドで開く）
         self.open_history_request = threading.Event()
         self._history_window = None
+        # クリップボード送信リクエスト（メインスレッドで実行）
+        self.send_clipboard_request = threading.Event()
 
         # 保存フォルダ初期化
         ensure_dir(TEXT_SAVE_DIR)
@@ -338,7 +340,7 @@ class DataShareClient:
                 show_notification("ファイルを受信", preview or "ファイル", url=view_url)
 
     def send_clipboard(self):
-        """PCのクリップボードの内容をサーバーに送信（確認ダイアログ付き）"""
+        """PCのクリップボードの内容をサーバーに送信"""
         try:
             import subprocess
             result = subprocess.run(
@@ -351,10 +353,6 @@ class DataShareClient:
             text = result.stdout.strip()
             if not text:
                 show_notification("送信失敗", "クリップボードが空です")
-                return
-
-            # 確認ダイアログ表示
-            if not self._confirm_send_text(text):
                 return
 
             resp = self.session.post(
@@ -376,21 +374,9 @@ class DataShareClient:
         except Exception as e:
             show_notification("送信失敗", str(e))
 
-    def _confirm_send_text(self, text: str) -> bool:
-        """テキスト送信の確認ダイアログ（内容表示付き）"""
-        import tkinter.messagebox as mb
-        root = tk.Tk()
-        root.withdraw()
-        root.attributes("-topmost", True)
-        # プレビュー（長すぎる場合は切り詰め）
-        preview = text if len(text) <= 200 else text[:200] + "..."
-        result = mb.askokcancel(
-            "即シェア君 — クリップボード送信",
-            f"この内容を送信しますか？\n\n{preview}",
-            parent=root,
-        )
-        root.destroy()
-        return result
+    def request_send_clipboard(self):
+        """クリップボード送信をリクエスト（pystrayスレッドから呼ばれる）"""
+        self.send_clipboard_request.set()
 
     def send_file(self, file_path: str):
         """ファイルをサーバーに送信（確認ダイアログ付き）"""
@@ -401,10 +387,6 @@ class DataShareClient:
                 return
             if p.stat().st_size > 10 * 1024 * 1024:
                 show_notification("送信失敗", "ファイルが大きすぎます (上限10MB)")
-                return
-
-            # 確認ダイアログ
-            if not self._confirm_send_file(p.name):
                 return
 
             import mimetypes
@@ -431,20 +413,6 @@ class DataShareClient:
 
         except Exception as e:
             show_notification("送信失敗", str(e))
-
-    def _confirm_send_file(self, file_name: str) -> bool:
-        """ファイル送信の確認ダイアログ"""
-        import tkinter.messagebox as mb
-        root = tk.Tk()
-        root.withdraw()
-        root.attributes("-topmost", True)
-        result = mb.askokcancel(
-            "即シェア君 — ファイル送信",
-            f"このファイルを送信しますか？\n\n{file_name}",
-            parent=root,
-        )
-        root.destroy()
-        return result
 
     def poll_loop(self):
         """ポーリングメインループ（バックグラウンドスレッド）"""
@@ -474,6 +442,10 @@ class DataShareClient:
             if self.open_history_request.is_set():
                 self.open_history_request.clear()
                 self._show_history_window()
+            # クリップボード送信リクエストをチェック（メインスレッドでダイアログ表示）
+            if self.send_clipboard_request.is_set():
+                self.send_clipboard_request.clear()
+                self.send_clipboard()
 
     def _show_history_window(self):
         """履歴ウィンドウを表示（メインスレッドで実行）"""
@@ -490,7 +462,7 @@ class DataShareClient:
     def run(self):
         """メインエントリ"""
         self.tray = TrayApp(
-            on_send_clipboard=self.send_clipboard,
+            on_send_clipboard=self.request_send_clipboard,
             on_open_page=lambda: webbrowser.open(self.base_url),
             on_quit=self.stop,
             on_show_history=self.request_open_history,

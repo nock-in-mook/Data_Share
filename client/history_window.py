@@ -117,6 +117,8 @@ def _build_row(parent, item, alt: bool, win):
             _show_text_detail(win, item)
         elif item.item_type == "image" and item.file_path:
             _open_file(item.file_path)
+        elif item.item_type == "file" and item.file_path:
+            _open_folder(item.file_path)
 
     # 時刻
     time_lbl = tk.Label(
@@ -165,6 +167,24 @@ def _build_row(parent, item, alt: bool, win):
         lbl = tk.Label(
             row, text=f"\U0001f5bc {short}", font=("Segoe UI", 9),
             fg="#8ecae6", bg=bg, anchor="w",
+        )
+        lbl.pack(side="left", fill="x", expand=True, padx=6)
+        lbl.bind("<Double-1>", on_dblclick)
+
+    elif item.item_type == "file":
+        if item.file_path:
+            fp = str(item.file_path)
+            _make_btn(row, "\U0001f4c1", BTN_FOLDER_BG, bg,
+                      lambda _e=None, p=fp: _open_folder(p))
+
+        # 区切り線
+        tk.Frame(row, bg="#3a3a5a", width=1).pack(side="right", fill="y", pady=4)
+
+        name = os.path.basename(item.file_path) if item.file_path else "ファイル"
+        short = name[:20] + "..." if len(name) > 20 else name
+        lbl = tk.Label(
+            row, text=f"\U0001f4ce {short}", font=("Segoe UI", 9),
+            fg="#c4a7e7", bg=bg, anchor="w",
         )
         lbl.pack(side="left", fill="x", expand=True, padx=6)
         lbl.bind("<Double-1>", on_dblclick)
