@@ -64,14 +64,21 @@ def is_screen_locked() -> bool:
 _tk_root = None
 
 def clipboard_copy_mainthread(text: str):
-    """メインスレッドで tkinter を使ってクリップボードにコピー"""
-    global _tk_root
-    if _tk_root is None:
-        _tk_root = tk.Tk()
-        _tk_root.withdraw()
-    _tk_root.clipboard_clear()
-    _tk_root.clipboard_append(text)
-    _tk_root.update()
+    """クリップボードにコピー（PowerShell + 一時ファイル経由で確実に反映）"""
+    import subprocess
+    import tempfile
+    try:
+        tmp = os.path.join(tempfile.gettempdir(), "rapid_share_clip.txt")
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(text)
+        subprocess.run(
+            ["powershell", "-Command",
+             f"Set-Clipboard -Value (Get-Content -Raw -Encoding UTF8 '{tmp}')"],
+            creationflags=subprocess.CREATE_NO_WINDOW,
+            timeout=5,
+        )
+    except Exception as e:
+        print(f"[clipboard error] {e}")
 
 
 def ensure_dir(path: Path):
@@ -559,6 +566,21 @@ def show_text_viewer():
     root.mainloop()
 
 
+def acquire_single_instance():
+    """多重起動防止（Windows Named Mutex）。既に起動中ならFalseを返す"""
+    try:
+        kernel32 = ctypes.windll.kernel32
+        mutex = kernel32.CreateMutexW(None, True, "SokuShareKun_SingleInstance")
+        # ERROR_ALREADY_EXISTS = 183
+        if kernel32.GetLastError() == 183:
+            kernel32.CloseHandle(mutex)
+            return False
+        # mutexを保持し続ける（プロセス終了時に自動解放）
+        return True
+    except Exception:
+        return True  # エラー時は起動を許可
+
+
 def main():
     # --view-text モード: テキストビューアとして起動
     if "--view-text" in sys.argv:
@@ -577,13 +599,18 @@ def main():
         print("[error] config.json に base_url を設定してください")
         sys.exit(1)
 
-    # --send-file モード: コンテキストメニューからファイルを送信
+    # --send-file モード: コンテキストメニューからファイルを送信（多重起動OK）
     if "--send-file" in sys.argv:
         idx = sys.argv.index("--send-file")
         if idx + 1 < len(sys.argv):
             file_path = sys.argv[idx + 1]
             client = DataShareClient(base_url)
             client.send_file(file_path)
+        return
+
+    # 通常起動: 多重起動防止
+    if not acquire_single_instance():
+        print("[info] 即シェア君は既に起動しています")
         return
 
     client = DataShareClient(base_url)
