@@ -34,8 +34,8 @@ POLL_INTERVAL_IDLE = 30      # スクリーンセーバー/ロック時: 30秒
 POLL_ENDPOINT = "/api/poll"
 ITEM_ENDPOINT = "/api/item"
 
-# 自動保存先（Dropboxフォルダ）— config.json で上書き可能
-DEFAULT_APPS_ROOT = Path.home() / "Dropbox" / "shared_files"
+# 自動保存先（Googleドライブ）— config.json で上書き可能
+DEFAULT_APPS_ROOT = Path.home() / "Library" / "CloudStorage" / "GoogleDrive-yagukyou@gmail.com" / "マイドライブ" / "_Apps2026"
 TEXT_SAVE_DIR = DEFAULT_APPS_ROOT / "text"
 IMAGE_SAVE_DIR = DEFAULT_APPS_ROOT / "images"
 MAX_SAVED_FILES = 50  # 各フォルダの最大ファイル数

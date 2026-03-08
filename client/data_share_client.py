@@ -35,8 +35,8 @@ POLL_INTERVAL_IDLE = 30      # スクリーンセーバー/ロック時: 30秒
 POLL_ENDPOINT = "/api/poll"
 ITEM_ENDPOINT = "/api/item"
 
-# 自動保存先（自作アプリ親フォルダ）
-APPS_ROOT = Path("D:/Dropbox/_Apps2026")
+# 自動保存先（Googleドライブ）
+APPS_ROOT = Path("G:/マイドライブ/_Apps2026")
 TEXT_SAVE_DIR = APPS_ROOT / "text"
 IMAGE_SAVE_DIR = APPS_ROOT / "images"
 OTHERS_SAVE_DIR = APPS_ROOT / "others"

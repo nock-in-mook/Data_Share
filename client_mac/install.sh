@@ -34,13 +34,13 @@ echo "パッケージをインストール中..."
 ./venv/bin/pip install -q -r requirements.txt
 
 # 保存先フォルダ作成
-APPS_ROOT="/Users/nock_re/Dropbox/_Apps2026"
+APPS_ROOT="/Users/nock_re/Library/CloudStorage/GoogleDrive-yagukyou@gmail.com/マイドライブ/_Apps2026"
 if [ -f config.json ]; then
     APPS_ROOT=$("$PYTHON" -c "
 import json, os
 with open('config.json', encoding='utf-8') as f:
     c = json.load(f)
-print(os.path.expanduser(c.get('apps_root', '/Users/nock_re/Dropbox/shared_files')))
+print(os.path.expanduser(c.get('apps_root', '/Users/nock_re/Library/CloudStorage/GoogleDrive-yagukyou@gmail.com/マイドライブ/_Apps2026')))
 ")
 fi
 mkdir -p "$APPS_ROOT/text"
