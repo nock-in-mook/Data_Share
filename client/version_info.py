@@ -20,7 +20,7 @@ VSVersionInfo(
             StringStruct(u'CompanyName', u''),
             StringStruct(u'FileDescription', u'\u5373\u30b7\u30a7\u30a2\u541b'),
             StringStruct(u'FileVersion', u'1.0.0'),
-            StringStruct(u'InternalName', u'RapidShare'),
+            StringStruct(u'InternalName', u'\u5373\u30b7\u30a7\u30a2\u541b'),
             StringStruct(u'OriginalFilename', u'RapidShare.exe'),
             StringStruct(u'ProductName', u'\u5373\u30b7\u30a7\u30a2\u541b'),
             StringStruct(u'ProductVersion', u'1.0.0'),
