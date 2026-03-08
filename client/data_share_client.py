@@ -385,8 +385,8 @@ class DataShareClient:
             if not p.exists():
                 show_notification("送信失敗", f"ファイルが見つかりません: {p.name}")
                 return
-            if p.stat().st_size > 10 * 1024 * 1024:
-                show_notification("送信失敗", "ファイルが大きすぎます (上限10MB)")
+            if p.stat().st_size > 50 * 1024 * 1024:
+                show_notification("送信失敗", "ファイルが大きすぎます (上限50MB)")
                 return
 
             import mimetypes

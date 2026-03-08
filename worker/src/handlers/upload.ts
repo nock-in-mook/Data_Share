@@ -3,7 +3,7 @@ import { Env, ItemData, LatestItem, UploadResponse } from '../types';
 import { generateId } from '../utils/id';
 
 const TEXT_MAX = 100 * 1024;   // 100KB
-const FILE_MAX = 10 * 1024 * 1024; // 10MB（画像・ファイル共通）
+const FILE_MAX = 50 * 1024 * 1024; // 50MB（画像・ファイル共通）
 const TTL = 300; // 5分
 
 export async function handleUpload(request: Request, env: Env): Promise<Response> {
@@ -39,7 +39,7 @@ export async function handleUpload(request: Request, env: Env): Promise<Response
         return jsonResponse({ ok: false, error: 'ファイルが選択されていません' }, 400);
       }
       if (file.size > FILE_MAX) {
-        return jsonResponse({ ok: false, error: 'ファイルが大きすぎます (上限10MB)' }, 400);
+        return jsonResponse({ ok: false, error: 'ファイルが大きすぎます (上限50MB)' }, 400);
       }
 
       // R2に保存
