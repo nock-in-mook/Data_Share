@@ -25,7 +25,7 @@ function checkRateLimit(ip: string): boolean {
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method;
@@ -54,7 +54,7 @@ export default {
 
     // POST /api/upload → アップロード処理
     if (method === 'POST' && path === '/api/upload') {
-      return handleUpload(request, env);
+      return handleUpload(request, env, ctx);
     }
 
     // GET /api/poll → ポーリング

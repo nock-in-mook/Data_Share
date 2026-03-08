@@ -2,6 +2,7 @@
 export interface Env {
   KV: KVNamespace;
   R2?: R2Bucket;
+  SLACK_WEBHOOK_URL?: string;
 }
 
 // KV に保存するアイテムデータ

@@ -1,12 +1,13 @@
-// アップロード処理（テキスト + 画像）
+// アップロード処理（テキスト + 画像 + ファイル）
 import { Env, ItemData, LatestItem, UploadResponse } from '../types';
 import { generateId } from '../utils/id';
+import { notifySlack } from '../utils/slack';
 
 const TEXT_MAX = 100 * 1024;   // 100KB
 const FILE_MAX = 50 * 1024 * 1024; // 50MB（画像・ファイル共通）
 const TTL = 300; // 5分
 
-export async function handleUpload(request: Request, env: Env): Promise<Response> {
+export async function handleUpload(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const contentType = request.headers.get('content-type') || '';
 
   try {
@@ -78,6 +79,9 @@ export async function handleUpload(request: Request, env: Env): Promise<Response
     // 最新アイテム情報を更新（ポーリング用）
     const latest: LatestItem = { id, type: item.type, preview, createdAt: item.createdAt };
     await env.KV.put('latest', JSON.stringify(latest), { expirationTtl: TTL });
+
+    // Slack通知（レスポンスをブロックしない）
+    ctx.waitUntil(notifySlack(env, id, item));
 
     const resp: UploadResponse = { ok: true, id, url: `/view/${id}` };
     return jsonResponse(resp);
