@@ -5,15 +5,28 @@ import { iconMetaTags } from '../handlers/icon';
 export function viewerPageHtml(item: ItemData, id: string): string {
   const isText = item.type === 'text';
 
-  const contentSection = isText
-    ? `<div class="text-content" id="content">${escapeHtml(item.content || '')}</div>
-       <button class="btn btn-primary" onclick="copyText()">テキストをコピー</button>`
-    : `<div class="image-content">
+  let contentSection: string;
+  if (isText) {
+    contentSection = `<div class="text-content" id="content">${escapeHtml(item.content || '')}</div>
+       <button class="btn btn-primary" onclick="copyText()">テキストをコピー</button>`;
+  } else if (item.type === 'image') {
+    contentSection = `<div class="image-content">
          <img src="/api/item/${id}/raw" alt="shared image" style="max-width:100%;border-radius:8px;">
        </div>
        <a class="btn btn-primary" href="/api/item/${id}/raw" download="${escapeHtml(item.fileName || 'image')}" style="display:block;text-align:center;text-decoration:none;">
          画像をダウンロード
        </a>`;
+  } else {
+    // ファイル
+    contentSection = `<div style="text-align:center;padding:24px;">
+         <div style="font-size:3rem;margin-bottom:12px;">📄</div>
+         <div style="font-size:1.1rem;margin-bottom:8px;">${escapeHtml(item.fileName || 'ファイル')}</div>
+         <div style="font-size:0.85rem;color:#888;">${escapeHtml(item.mimeType || '')}</div>
+       </div>
+       <a class="btn btn-primary" href="/api/item/${id}/raw" download="${escapeHtml(item.fileName || 'file')}" style="display:block;text-align:center;text-decoration:none;">
+         ファイルをダウンロード
+       </a>`;
+  }
 
   return `<!DOCTYPE html>
 <html lang="ja">

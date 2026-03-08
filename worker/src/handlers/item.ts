@@ -41,7 +41,7 @@ export async function handleGetItem(id: string, env: Env, raw: boolean): Promise
   }
   return jsonResponse({
     ok: true,
-    type: 'image',
+    type: item.type,
     mimeType: item.mimeType,
     fileName: item.fileName,
     rawUrl: `/api/item/${id}/raw`,

@@ -71,12 +71,20 @@ ${iconMetaTags}
     position: relative;
     overflow: hidden;
   }
-  .btn-image input[type="file"] {
+  .btn-image input[type="file"],
+  .btn-file input[type="file"] {
     position: absolute;
     inset: 0;
     opacity: 0;
     cursor: pointer;
     font-size: 200px;
+  }
+  .btn-file {
+    background: #6a4c93;
+    color: #fff;
+    margin-top: 8px;
+    position: relative;
+    overflow: hidden;
   }
   .result {
     margin-top: 20px;
@@ -141,6 +149,11 @@ ${iconMetaTags}
   <button class="btn btn-image">
     画像を選択（複数可）
     <input type="file" accept="image/*" multiple onchange="sendImages(this.files)">
+  </button>
+
+  <button class="btn btn-file">
+    ファイルを送信
+    <input type="file" onchange="sendFile(this.files[0])">
   </button>
 
   <p class="paste-hint">画像はクリップボードから貼り付けもOK</p>
@@ -248,6 +261,14 @@ async function sendImages(files) {
   }
 }
 
+// ファイル送信（任意のファイル）
+async function sendFile(file) {
+  if (!file) return;
+  const fd = new FormData();
+  fd.append('file', file);
+  await upload({ type: 'file', formData: fd });
+}
+
 // クリップボード画像ペースト
 document.addEventListener('paste', (e) => {
   const items = e.clipboardData?.items;
@@ -279,9 +300,11 @@ async function upload(data) {
         body: JSON.stringify({ type: 'text', content: data.content }),
         signal: controller.signal,
       });
+    } else if (data.formData) {
+      // ファイル送信（FormData直渡し）
+      resp = await fetch('/api/upload', { method: 'POST', body: data.formData, signal: controller.signal });
     } else {
       const fd = new FormData();
-      fd.append('type', 'image');
       fd.append('file', data.file);
       resp = await fetch('/api/upload', { method: 'POST', body: fd, signal: controller.signal });
     }

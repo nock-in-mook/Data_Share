@@ -3,7 +3,7 @@ import { Env, ItemData, LatestItem, UploadResponse } from '../types';
 import { generateId } from '../utils/id';
 
 const TEXT_MAX = 100 * 1024;   // 100KB
-const IMAGE_MAX = 10 * 1024 * 1024; // 10MB
+const FILE_MAX = 10 * 1024 * 1024; // 10MB（画像・ファイル共通）
 const TTL = 300; // 5分
 
 export async function handleUpload(request: Request, env: Env): Promise<Response> {
@@ -32,36 +32,36 @@ export async function handleUpload(request: Request, env: Env): Promise<Response
       preview = body.content.slice(0, 50);
 
     } else if (contentType.includes('multipart/form-data')) {
-      // 画像アップロード
+      // ファイルアップロード（画像・その他ファイル）
       const formData = await request.formData();
       const file = formData.get('file') as File | null;
       if (!file) {
         return jsonResponse({ ok: false, error: 'ファイルが選択されていません' }, 400);
       }
-      if (file.size > IMAGE_MAX) {
-        return jsonResponse({ ok: false, error: '画像が大きすぎます (上限10MB)' }, 400);
-      }
-      if (!file.type.startsWith('image/')) {
-        return jsonResponse({ ok: false, error: '画像ファイルのみ対応しています' }, 400);
+      if (file.size > FILE_MAX) {
+        return jsonResponse({ ok: false, error: 'ファイルが大きすぎます (上限10MB)' }, 400);
       }
 
       // R2に保存
       const r2Key = `uploads/${id}`;
       if (!env.R2) {
-        return jsonResponse({ ok: false, error: '画像機能は準備中です' }, 503);
+        return jsonResponse({ ok: false, error: 'ファイル機能は準備中です' }, 503);
       }
       await env.R2.put(r2Key, file.stream(), {
-        httpMetadata: { contentType: file.type },
+        httpMetadata: { contentType: file.type || 'application/octet-stream' },
       });
 
+      // 画像かファイルかを判定
+      const fileType = file.type.startsWith('image/') ? 'image' as const : 'file' as const;
+
       item = {
-        type: 'image',
+        type: fileType,
         r2Key,
-        mimeType: file.type,
+        mimeType: file.type || 'application/octet-stream',
         fileName: file.name,
         createdAt: Date.now(),
       };
-      preview = file.name || '画像';
+      preview = file.name || (fileType === 'image' ? '画像' : 'ファイル');
 
       // R2クリーンアップ用キー
       await env.KV.put(`cleanup:${id}`, JSON.stringify({ r2Key, createdAt: Date.now() }), {

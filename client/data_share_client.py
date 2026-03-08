@@ -39,6 +39,7 @@ ITEM_ENDPOINT = "/api/item"
 APPS_ROOT = Path("D:/Dropbox/_Apps2026")
 TEXT_SAVE_DIR = APPS_ROOT / "text"
 IMAGE_SAVE_DIR = APPS_ROOT / "images"
+OTHERS_SAVE_DIR = APPS_ROOT / "others"
 MAX_SAVED_FILES = 50  # 各フォルダの最大ファイル数
 
 # 履歴保持時間
@@ -94,7 +95,7 @@ class HistoryItem:
     def __init__(self, item_type: str, preview: str, content: str = "",
                  file_path: str = "", view_url: str = ""):
         self.timestamp = datetime.now()
-        self.item_type = item_type  # "text" or "image"
+        self.item_type = item_type  # "text", "image", "file"
         self.preview = preview
         self.content = content      # テキスト全文
         self.file_path = file_path  # 画像の保存パス
@@ -127,6 +128,7 @@ class DataShareClient:
         # 保存フォルダ初期化
         ensure_dir(TEXT_SAVE_DIR)
         ensure_dir(IMAGE_SAVE_DIR)
+        ensure_dir(OTHERS_SAVE_DIR)
 
     def add_history(self, item: HistoryItem):
         """履歴に追加（期限切れも同時に掃除）"""
@@ -221,6 +223,30 @@ class DataShareClient:
             print(f"[image download error] {e}")
             return ""
 
+    def download_file(self, item_id: str, file_name: str) -> str:
+        """ファイルをR2からダウンロードしてothersフォルダに保存、パスを返す"""
+        try:
+            resp = self.session.get(
+                f"{self.base_url}{ITEM_ENDPOINT}/{item_id}/raw",
+                timeout=30,
+            )
+            resp.raise_for_status()
+
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            # 元ファイル名からベース名と拡張子を取る
+            p = Path(file_name)
+            safe_name = "".join(c for c in p.stem if c.isalnum() or c in "-_")
+            ext = p.suffix if p.suffix else ""
+            if not safe_name:
+                safe_name = "file"
+            file_path = OTHERS_SAVE_DIR / f"{ts}_{safe_name}{ext}"
+            file_path.write_bytes(resp.content)
+            rotate_files(OTHERS_SAVE_DIR, MAX_SAVED_FILES)
+            return str(file_path)
+        except Exception as e:
+            print(f"[file download error] {e}")
+            return ""
+
     def handle_new_item(self, poll_data: dict):
         """新着アイテムを処理（通知 + クリップボード + 自動保存 + 履歴追加）"""
         item_id = poll_data["id"]
@@ -285,8 +311,34 @@ class DataShareClient:
                 self.clip_queue.put(view_url)
                 show_notification("画像を受信", preview or "画像ファイル", url=view_url)
 
+        elif item_type == "file":
+            item = self.fetch_item(item_id)
+            if item and item.get("ok"):
+                file_name = item.get("fileName", "file")
+                saved_path = self.download_file(item_id, file_name)
+                if saved_path:
+                    self.clip_queue.put(saved_path)
+                    self.add_history(HistoryItem(
+                        item_type="file", preview=preview,
+                        file_path=saved_path, view_url=view_url,
+                    ))
+                    show_notification(
+                        "ファイルを保存しました",
+                        f"{preview or 'ファイル'} → {Path(saved_path).name}",
+                        url=saved_path,
+                    )
+                else:
+                    self.clip_queue.put(view_url)
+                    self.add_history(HistoryItem(
+                        item_type="file", preview=preview, view_url=view_url,
+                    ))
+                    show_notification("ファイルを受信", preview or "ファイル", url=view_url)
+            else:
+                self.clip_queue.put(view_url)
+                show_notification("ファイルを受信", preview or "ファイル", url=view_url)
+
     def send_clipboard(self):
-        """PCのクリップボードの内容をサーバーに送信"""
+        """PCのクリップボードの内容をサーバーに送信（確認ダイアログ付き）"""
         try:
             import subprocess
             result = subprocess.run(
@@ -299,6 +351,10 @@ class DataShareClient:
             text = result.stdout.strip()
             if not text:
                 show_notification("送信失敗", "クリップボードが空です")
+                return
+
+            # 確認ダイアログ表示
+            if not self._confirm_send_text(text):
                 return
 
             resp = self.session.post(
@@ -319,6 +375,76 @@ class DataShareClient:
 
         except Exception as e:
             show_notification("送信失敗", str(e))
+
+    def _confirm_send_text(self, text: str) -> bool:
+        """テキスト送信の確認ダイアログ（内容表示付き）"""
+        import tkinter.messagebox as mb
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        # プレビュー（長すぎる場合は切り詰め）
+        preview = text if len(text) <= 200 else text[:200] + "..."
+        result = mb.askokcancel(
+            "即シェア君 — クリップボード送信",
+            f"この内容を送信しますか？\n\n{preview}",
+            parent=root,
+        )
+        root.destroy()
+        return result
+
+    def send_file(self, file_path: str):
+        """ファイルをサーバーに送信（確認ダイアログ付き）"""
+        try:
+            p = Path(file_path)
+            if not p.exists():
+                show_notification("送信失敗", f"ファイルが見つかりません: {p.name}")
+                return
+            if p.stat().st_size > 10 * 1024 * 1024:
+                show_notification("送信失敗", "ファイルが大きすぎます (上限10MB)")
+                return
+
+            # 確認ダイアログ
+            if not self._confirm_send_file(p.name):
+                return
+
+            import mimetypes
+            mime, _ = mimetypes.guess_type(file_path)
+            if not mime:
+                mime = "application/octet-stream"
+
+            with open(file_path, "rb") as f:
+                resp = self.session.post(
+                    f"{self.base_url}/api/upload",
+                    files={"file": (p.name, f, mime)},
+                    timeout=30,
+                )
+            resp.raise_for_status()
+            data = resp.json()
+            if data.get("ok"):
+                show_notification(
+                    "ファイルを送信しました",
+                    p.name,
+                    url=f"{self.base_url}{data['url']}",
+                )
+            else:
+                show_notification("送信失敗", data.get("error", ""))
+
+        except Exception as e:
+            show_notification("送信失敗", str(e))
+
+    def _confirm_send_file(self, file_name: str) -> bool:
+        """ファイル送信の確認ダイアログ"""
+        import tkinter.messagebox as mb
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        result = mb.askokcancel(
+            "即シェア君 — ファイル送信",
+            f"このファイルを送信しますか？\n\n{file_name}",
+            parent=root,
+        )
+        root.destroy()
+        return result
 
     def poll_loop(self):
         """ポーリングメインループ（バックグラウンドスレッド）"""
@@ -478,6 +604,15 @@ def main():
     if "YOUR_SUBDOMAIN" in base_url:
         print("[error] config.json に base_url を設定してください")
         sys.exit(1)
+
+    # --send-file モード: コンテキストメニューからファイルを送信
+    if "--send-file" in sys.argv:
+        idx = sys.argv.index("--send-file")
+        if idx + 1 < len(sys.argv):
+            file_path = sys.argv[idx + 1]
+            client = DataShareClient(base_url)
+            client.send_file(file_path)
+        return
 
     client = DataShareClient(base_url)
     client.run()
