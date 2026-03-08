@@ -10,7 +10,7 @@
       "Bash(git commit:*)",
       "Bash(git push)",
       "Bash(cmd.exe //c 'dir \"\"%APPDATA%\\\\Microsoft\\\\Windows\\\\Start Menu\\\\Programs\\\\Startup\\\\DataShare*\"\"')",
-      "Bash(cmd.exe //c 'echo Set WshShell = CreateObject\\(\"\"WScript.Shell\"\"\\) > \"\"%APPDATA%\\\\Microsoft\\\\Windows\\\\Start Menu\\\\Programs\\\\Startup\\\\DataShare.vbs\"\" && echo WshShell.Run \"\"\"\"\"\"D:\\\\Dropbox\\\\_Apps2026\\\\Data_Share\\\\client\\\\dist\\\\DataShare.exe\"\"\"\"\"\", 0, False >> \"\"%APPDATA%\\\\Microsoft\\\\Windows\\\\Start Menu\\\\Programs\\\\Startup\\\\DataShare.vbs\"\"')",
+      "Bash(cmd.exe //c 'echo Set WshShell = CreateObject\\(\"\"WScript.Shell\"\"\\) > \"\"%APPDATA%\\\\Microsoft\\\\Windows\\\\Start Menu\\\\Programs\\\\Startup\\\\DataShare.vbs\"\" && echo WshShell.Run \"\"\"\"\"\"G:\\\\マイドライブ\\\\_Apps2026\\\\Data_Share\\\\client\\\\dist\\\\RapidShare.exe\"\"\"\"\"\", 0, False >> \"\"%APPDATA%\\\\Microsoft\\\\Windows\\\\Start Menu\\\\Programs\\\\Startup\\\\DataShare.vbs\"\"')",
       "Bash(cmd.exe //c \"C:\\\\Users\\\\msp\\\\Desktop\\\\_tmp_startup.bat\")",
       "Bash(\"C:/Users/msp/Desktop/_tmp_startup.bat\")",
       "Bash(PYTHONUTF8=1 py -3.14 -c \":*)",
