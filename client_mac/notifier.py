@@ -2,10 +2,11 @@
 import subprocess
 import os
 import tempfile
+from typing import Optional
 
 
-def show_notification(title: str, message: str, file_path: str | None = None,
-                      text_content: str | None = None):
+def show_notification(title: str, message: str, file_path: Optional[str] = None,
+                      text_content: Optional[str] = None):
     """macOS通知を表示する（通知センター経由）"""
     try:
         # osascript で通知表示

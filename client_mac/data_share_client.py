@@ -152,13 +152,13 @@ class DataShareClient:
         except Exception:
             pass
 
-    def get_history(self) -> list[HistoryItem]:
+    def get_history(self):
         """有効な履歴を返す"""
         with self.history_lock:
             self.history = [h for h in self.history if not h.is_expired()]
             return list(self.history)
 
-    def poll_once(self) -> dict | None:
+    def poll_once(self):
         """1回ポーリングして新着があれば返す"""
         try:
             params = {}
@@ -184,7 +184,7 @@ class DataShareClient:
             print(f"[polling error] {e}")
             return None
 
-    def fetch_item(self, item_id: str) -> dict | None:
+    def fetch_item(self, item_id: str):
         """アイテムの詳細データを取得"""
         try:
             resp = self.session.get(
@@ -311,7 +311,6 @@ class DataShareClient:
                     show_notification(
                         "画像を保存しました",
                         f"{preview or '画像'} → {Path(saved_path).name}",
-                        file_path=saved_path,
                     )
                 else:
                     # ダウンロード失敗時はURLをコピー
@@ -338,7 +337,6 @@ class DataShareClient:
                     show_notification(
                         "ファイルを保存しました",
                         f"{preview or 'ファイル'} → {Path(saved_path).name}",
-                        file_path=saved_path,
                     )
                 else:
                     self.clip_queue.put(view_url)
