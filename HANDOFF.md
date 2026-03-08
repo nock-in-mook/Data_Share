@@ -1,26 +1,15 @@
 # Data_Share (即シェア君) 引き継ぎメモ
 
-## 最終更新: 2026-03-08
+## 最終更新: 2026-03-09
 
-## 直近の作業: Slack通知機能の実装
-- アップロード成功時にSlack Webhookで通知を送信する機能を追加
-- Workers Secret `SLACK_WEBHOOK_URL` に即シェア君用Webhook URLを設定済み
-- `ctx.waitUntil` で非同期送信（通知失敗でもアップロードは成功する）
-- テキスト/画像/ファイルそれぞれに応じた通知メッセージ
-- shared-env にも `DATA_SHARE_SLACK_WEBHOOK` として保存済み
+## 直近の作業: Dropbox→Googleドライブ移行 + Mac版機能反映
+- 全パスをDropbox→Googleドライブに更新（Windows/Mac両方）
+- exe名を `即シェア君.exe` に変更（タスクトレイ表示名対応）
+- Mac版にfile対応・多重起動防止・send_file等を反映
 
 ## 次のアクション
-- **Mac版（client_mac/）に追加機能を反映**（下記参照）
-
-## Mac版に必要な変更
-1. `OTHERS_SAVE_DIR` 追加（`others/` フォルダ対応）
-2. `download_file()` メソッド追加
-3. `handle_new_item()` に `type='file'` の処理追加
-4. `send_file()` メソッド追加（右クリック送信はMac不要だがコマンドライン対応）
-5. クリップボードコピーを `pbcopy` 方式に変更（Mac版は元からsubprocess使用か確認）
-6. 多重起動防止（macOS向け: ロックファイル方式）
-7. 履歴ウィンドウに `file` タイプの行追加
-8. 履歴ウィンドウの最前面を出現時のみに変更
+- Mac版の動作確認（Macで実際に起動テスト）
+- 必要に応じてMac版のexe化（PyInstaller）
 
 ## 現在の状況
 - **Cloudflare Workers**: デプロイ済み → https://data-share.yagukyou.workers.dev
