@@ -98,6 +98,8 @@ def show_history(items: list, get_history_fn=None):
     y = (win.winfo_screenheight() - h) // 2
     win.geometry(f"+{x}+{y}")
     win.deiconify()
+    # 最前面で表示した後、すぐにフリーにする
+    win.after(500, lambda: win.attributes("-topmost", False))
 
     if not _has_tk_root():
         win.mainloop()
