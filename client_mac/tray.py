@@ -91,7 +91,7 @@ class TrayApp:
     def run(self):
         """メニューバーアイコンを表示（ブロッキング）"""
         self.icon = pystray.Icon(
-            name="rapid_share",
+            name="即シェア君",
             icon=create_icon_image(),
             title="即シェア君",
             menu=self._build_menu(),

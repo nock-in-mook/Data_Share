@@ -45,6 +45,7 @@ print(os.path.expanduser(c.get('apps_root', '/Users/nock_re/Library/CloudStorage
 fi
 mkdir -p "$APPS_ROOT/text"
 mkdir -p "$APPS_ROOT/images"
+mkdir -p "$APPS_ROOT/others"
 echo "OK 保存先: $APPS_ROOT"
 
 # 起動スクリプト作成

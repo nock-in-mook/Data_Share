@@ -9,6 +9,7 @@ import threading
 import queue
 import webbrowser
 import subprocess
+import tempfile
 
 # DockにPythonアイコンを表示しない（メニューバー常駐アプリ化）
 try:
@@ -38,6 +39,7 @@ ITEM_ENDPOINT = "/api/item"
 DEFAULT_APPS_ROOT = Path.home() / "Library" / "CloudStorage" / "GoogleDrive-yagukyou@gmail.com" / "マイドライブ" / "_Apps2026"
 TEXT_SAVE_DIR = DEFAULT_APPS_ROOT / "text"
 IMAGE_SAVE_DIR = DEFAULT_APPS_ROOT / "images"
+OTHERS_SAVE_DIR = DEFAULT_APPS_ROOT / "others"
 MAX_SAVED_FILES = 50  # 各フォルダの最大ファイル数
 
 # 履歴保持時間
@@ -89,7 +91,7 @@ class HistoryItem:
     def __init__(self, item_type: str, preview: str, content: str = "",
                  file_path: str = "", view_url: str = ""):
         self.timestamp = datetime.now()
-        self.item_type = item_type  # "text" or "image"
+        self.item_type = item_type  # "text", "image", "file"
         self.preview = preview
         self.content = content      # テキスト全文
         self.file_path = file_path  # 画像の保存パス
@@ -118,12 +120,12 @@ class DataShareClient:
         # 履歴ウィンドウのコールバック
         self.open_history_request = threading.Event()
         # 履歴JSON共有パス（履歴ウィンドウと共有）
-        import tempfile
         self._history_json = os.path.join(tempfile.gettempdir(), "sokushare_history.json")
 
         # 保存フォルダ初期化
         ensure_dir(TEXT_SAVE_DIR)
         ensure_dir(IMAGE_SAVE_DIR)
+        ensure_dir(OTHERS_SAVE_DIR)
 
     def add_history(self, item: HistoryItem):
         """履歴に追加（期限切れも同時に掃除）+ JSON書き出し"""
@@ -237,6 +239,29 @@ class DataShareClient:
             print(f"[image download error] {e}")
             return ""
 
+    def download_file(self, item_id: str, file_name: str) -> str:
+        """ファイルをR2からダウンロードしてothersフォルダに保存、パスを返す"""
+        try:
+            resp = self.session.get(
+                f"{self.base_url}{ITEM_ENDPOINT}/{item_id}/raw",
+                timeout=30,
+            )
+            resp.raise_for_status()
+
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            p = Path(file_name)
+            safe_name = "".join(c for c in p.stem if c.isalnum() or c in "-_")
+            ext = p.suffix if p.suffix else ""
+            if not safe_name:
+                safe_name = "file"
+            file_path = OTHERS_SAVE_DIR / f"{ts}_{safe_name}{ext}"
+            file_path.write_bytes(resp.content)
+            rotate_files(OTHERS_SAVE_DIR, MAX_SAVED_FILES)
+            return str(file_path)
+        except Exception as e:
+            print(f"[file download error] {e}")
+            return ""
+
     def handle_new_item(self, poll_data: dict):
         """新着アイテムを処理（通知 + クリップボード + 自動保存 + 履歴追加）"""
         item_id = poll_data["id"]
@@ -298,6 +323,67 @@ class DataShareClient:
             else:
                 self.clip_queue.put(view_url)
                 show_notification("画像を受信", preview or "画像ファイル")
+
+        elif item_type == "file":
+            item = self.fetch_item(item_id)
+            if item and item.get("ok"):
+                file_name = item.get("fileName", "file")
+                saved_path = self.download_file(item_id, file_name)
+                if saved_path:
+                    self.clip_queue.put(saved_path)
+                    self.add_history(HistoryItem(
+                        item_type="file", preview=preview,
+                        file_path=saved_path, view_url=view_url,
+                    ))
+                    show_notification(
+                        "ファイルを保存しました",
+                        f"{preview or 'ファイル'} → {Path(saved_path).name}",
+                        file_path=saved_path,
+                    )
+                else:
+                    self.clip_queue.put(view_url)
+                    self.add_history(HistoryItem(
+                        item_type="file", preview=preview, view_url=view_url,
+                    ))
+                    show_notification("ファイルを受信", preview or "ファイル")
+            else:
+                self.clip_queue.put(view_url)
+                show_notification("ファイルを受信", preview or "ファイル")
+
+    def send_file(self, file_path: str):
+        """ファイルをサーバーに送信"""
+        try:
+            p = Path(file_path)
+            if not p.exists():
+                show_notification("送信失敗", f"ファイルが見つかりません: {p.name}")
+                return
+            if p.stat().st_size > 50 * 1024 * 1024:
+                show_notification("送信失敗", "ファイルが大きすぎます (上限50MB)")
+                return
+
+            import mimetypes
+            mime, _ = mimetypes.guess_type(file_path)
+            if not mime:
+                mime = "application/octet-stream"
+
+            with open(file_path, "rb") as f:
+                resp = self.session.post(
+                    f"{self.base_url}/api/upload",
+                    files={"file": (p.name, f, mime)},
+                    timeout=30,
+                )
+            resp.raise_for_status()
+            data = resp.json()
+            if data.get("ok"):
+                show_notification(
+                    "ファイルを送信しました",
+                    p.name,
+                )
+            else:
+                show_notification("送信失敗", data.get("error", ""))
+
+        except Exception as e:
+            show_notification("送信失敗", str(e))
 
     def send_clipboard(self):
         """PCのクリップボードの内容をサーバーに送信"""
@@ -400,7 +486,25 @@ def get_app_dir() -> str:
     return os.path.dirname(os.path.abspath(__file__))
 
 
+def acquire_single_instance() -> bool:
+    """多重起動防止（ロックファイル方式）。既に起動中ならFalseを返す"""
+    import fcntl
+    lock_path = os.path.join(tempfile.gettempdir(), "sokushare_mac.lock")
+    try:
+        # グローバルに保持（GCで閉じないように）
+        acquire_single_instance._lock_file = open(lock_path, "w")
+        fcntl.flock(acquire_single_instance._lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except (IOError, OSError):
+        return False
+
+
 def main():
+    # 多重起動防止
+    if not acquire_single_instance():
+        print("[info] 即シェア君は既に起動しています")
+        return
+
     config_path = os.path.join(get_app_dir(), "config.json")
     base_url = BASE_URL
 
@@ -409,10 +513,11 @@ def main():
             config = json.load(f)
             base_url = config.get("base_url", BASE_URL)
             # Mac用: 保存先ディレクトリを config から読む
-            global TEXT_SAVE_DIR, IMAGE_SAVE_DIR
+            global TEXT_SAVE_DIR, IMAGE_SAVE_DIR, OTHERS_SAVE_DIR
             apps_root = Path(config.get("apps_root", str(DEFAULT_APPS_ROOT)))
             TEXT_SAVE_DIR = Path(config.get("text_dir", str(apps_root / "text")))
             IMAGE_SAVE_DIR = Path(config.get("image_dir", str(apps_root / "images")))
+            OTHERS_SAVE_DIR = Path(config.get("others_dir", str(apps_root / "others")))
 
     if "YOUR_SUBDOMAIN" in base_url:
         print("[error] config.json に base_url を設定してください")
