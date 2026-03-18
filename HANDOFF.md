@@ -1,17 +1,18 @@
 # Data_Share (即シェア君) 引き継ぎメモ
 
-## 最終更新: 2026-03-09
+## 最終更新: 2026-03-18
 
-## 直近の作業: Windows版の旧exe更新 + スタートアップ修正
-- このPCで旧 `RapidShare.exe`（Dropboxパス `D:\Dropbox\...`）がまだ動いていた
-- 旧プロセスを停止し、スタートアップショートカットを `G:\マイドライブ\...\即シェア君.exe` に更新
-- 新しい `即シェア君.exe` を起動確認済み
-- レジストリにタスクトレイ関連の残骸なし（クリーン）
+## 直近の作業: 新しいMacに即シェア君をセットアップ
+- Homebrew で Python 3.12 + python-tk@3.12 をインストール
+- install.sh を実行して venv・依存パッケージ・LaunchAgent を設定
+- LaunchAgent の `ProcessType=Interactive` 追加で起動問題を解決
+- ログパスをGoogleドライブからローカル(/tmp/)に変更（Googleドライブパスだと起動時にコケる）
+- メニューバーに青丸アイコン表示、常駐動作確認済み
 
 ## 次のアクション
-- Mac版の継続テスト（実運用で問題が出ないか確認）
+- Mac版の実運用テスト（テキスト・画像・ファイル共有が正常に動作するか）
 - 必要に応じてMac版のexe化（PyInstaller）
-- 他のPCでも同様にDropbox→Googleドライブ移行が完了しているか確認
+- Windows版との相互送受信テスト
 
 ## 現在の状況
 - **Cloudflare Workers**: デプロイ済み → https://data-share.yagukyou.workers.dev
@@ -19,18 +20,18 @@
 - **R2**: `data-share-files` バケット作成済み
 - **cronトリガー**: 5分ごとR2クリーンアップ（KV List無料枠対策）
 - **PCクライアント**: exe化済み (`client/dist/即シェア君.exe`)
-- **Macクライアント**: venv方式で動作中（Python 3.9）
+- **Macクライアント**: venv方式で動作中（Python 3.12, LaunchAgent常駐）
 - **Slack通知**: Workers Secret設定済み、デプロイ済み
 
 ## 既知の注意点
-- macOS付属Python 3.9 + Tk 8.5.9 ではtkinterがクラッシュする → 履歴はHTMLベースで対応済み
-- urllib3のNotOpenSSLWarning（LibreSSL 2.8.3）は無害、動作に影響なし
-- curlでの日本語テスト送信は文字化けする（Git Bashの制約）→ Python か ブラウザで送ること
+- macOS LaunchAgentでGUIアプリを起動するには `ProcessType=Interactive` が必要
+- ログ出力先はGoogleドライブパスだとLaunchAgent起動時に失敗する → /tmp/ に出力
+- urllib3のNotOpenSSLWarning（LibreSSL）は無害、動作に影響なし
 
 ## ファイル構成
 ```
 worker/     → Cloudflare Workers (TypeScript) デプロイ済み
 client/     → PC常駐クライアント (Python)
-client_mac/ → Mac常駐クライアント (Python 3.9)
+client_mac/ → Mac常駐クライアント (Python 3.12)
 explain/    → プロジェクト説明
 ```
