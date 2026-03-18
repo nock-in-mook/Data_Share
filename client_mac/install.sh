@@ -78,10 +78,12 @@ cat > "$PLIST_PATH" << PLISTEOF
     <true/>
     <key>KeepAlive</key>
     <false/>
+    <key>ProcessType</key>
+    <string>Interactive</string>
     <key>StandardOutPath</key>
-    <string>${SCRIPT_DIR}/sokushare.log</string>
+    <string>/tmp/sokushare.log</string>
     <key>StandardErrorPath</key>
-    <string>${SCRIPT_DIR}/sokushare_error.log</string>
+    <string>/tmp/sokushare_error.log</string>
 </dict>
 </plist>
 PLISTEOF
